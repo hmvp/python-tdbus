@@ -1924,3 +1924,6 @@ void init_tdbus(void) {
     if (!dbus_connection_allocate_data_slot(&tdbus_app_slot))
         return;
 }
+
+/*
+ * vi: et sts=4 sw=4 et */
