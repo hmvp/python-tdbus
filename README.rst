@@ -30,6 +30,11 @@ Building and Installing
 
  $ pip install python-tdbus
 
+
+If you intend to use the gevent integration in Python 3 you must install the current development version of gevent:
+
+ # pip install cython git+git://github.com/surfly/gevent.git#egg=gevent
+
 Requirements
 ============
 
