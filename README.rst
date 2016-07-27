@@ -30,10 +30,11 @@ Building and Installing
 
  $ pip install python-tdbus
 
+
 Requirements
 ============
 
-Python-tdbus should work with Python 2.7 (maybe 2.6), 3.4 (3.3) and later.
+Python-tdbus should work with Python 2.7 and later.
 
 Comments and Suggestion
 =======================
