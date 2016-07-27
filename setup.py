@@ -12,7 +12,7 @@ from setuptools import setup, Extension
 
 version_info = {
     'name': 'python-tdbus',
-    'version': '0.10',
+    'version': '0.11',
     'description': 'A Python interface to D-BUS',
     'author': 'Hmvp, Geert Jansen',
     'author_email': 'github@hmvp.nl',
@@ -23,10 +23,10 @@ version_info = {
         'License :: OSI Approved :: MIT License',
         'Operating System :: POSIX',
         'Programming Language :: Python :: 2.6',
-        'Programming Language :: Python :: 2.7'
-        'Programming Language :: Python :: 3.3'
-        'Programming Language :: Python :: 3.4'
-        'Programming Language :: Python :: 3.5'
+        'Programming Language :: Python :: 2.7',
+        'Programming Language :: Python :: 3.3',
+        'Programming Language :: Python :: 3.4',
+        'Programming Language :: Python :: 3.5',
     ],
 }
 
