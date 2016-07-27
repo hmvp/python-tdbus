@@ -18,13 +18,23 @@
 
 #include <dbus/dbus.h>
 
+#if PY_MAJOR_VERSION >= 3
+    #define PyInt_AsLong PyLong_AsLong
+    #define PyInt_FromLong PyLong_FromLong
+    #define PyInt_FromString PyLong_FromString
+    #define PyInt_AsUnsignedLongMask PyLong_AsUnsignedLongMask
+    #define PyInt_AsUnsignedLongLongMask PyLong_AsUnsignedLongLongMask
+
+    #define PyString_FromString PyUnicode_FromString
+#endif
+
 /*
  * Some macros to make Python extensions in C less verbose.
  */
 
 #define RETURN_ERROR(fmt, ...) \
     do { \
-        if ((fmt) != NULL) PyErr_Format(tdbus_Error, fmt, ## __VA_ARGS__); \
+        if ((fmt) != NULL) PyErr_Format(GETSTATE()->error, fmt, ## __VA_ARGS__); \
         goto error; \
     } while (0)
 
@@ -56,8 +66,20 @@
     } } while (0)
 
 
-static PyObject *tdbus_Error = NULL;
-static int tdbus_app_slot = -1;
+struct module_state {
+    PyObject *error;
+    int app_slot;
+};
+
+#if PY_MAJOR_VERSION >= 3
+static struct PyModuleDef moduledef;
+#define GETMSTATE(m) ((struct module_state*)PyModule_GetState(m))
+#define GETSTATE() GETMSTATE(PyState_FindModule(&moduledef))
+#else
+#define GETMSTATE(m) (&_state)
+#define GETSTATE() (&_state)
+static struct module_state _state;
+#endif
 
 void _tdbus_decref(void *data)
 {
@@ -78,7 +100,7 @@ typedef struct
 
 static PyTypeObject PyTDBusWatchType =
 {
-    PyObject_HEAD_INIT(NULL) 0,
+    PyVarObject_HEAD_INIT(NULL, 0)
     "_tdbus.Watch",
     sizeof(PyTDBusWatchObject)
 };
@@ -225,7 +247,7 @@ typedef struct
 
 static PyTypeObject PyTDBusTimeoutType =
 {
-    PyObject_HEAD_INIT(NULL) 0,
+    PyVarObject_HEAD_INIT(NULL, 0)
     "_tdbus.Timeout",
     sizeof(PyTDBusTimeoutObject)
 };
@@ -350,7 +372,7 @@ typedef struct
 
 PyTypeObject PyTDBusMessageType =
 {
-    PyObject_HEAD_INIT(NULL) 0,
+    PyVarObject_HEAD_INIT(NULL, 0)
     "_tdbus.Message",
     sizeof(PyTDBusMessageObject)
 };
@@ -636,7 +658,7 @@ _tdbus_message_read_arg(DBusMessageIter *iter, int depth)
     case DBUS_TYPE_OBJECT_PATH:
     case DBUS_TYPE_SIGNATURE:
         dbus_message_iter_get_basic(iter, &value);
-        Parg = PyString_FromString(value.str);
+        Parg = PyUnicode_FromString(value.str);
         CHECK_PYTHON_ERROR(Parg == NULL);
         break;
     case DBUS_TYPE_STRUCT:
@@ -649,7 +671,7 @@ _tdbus_message_read_arg(DBusMessageIter *iter, int depth)
         dbus_message_iter_recurse(iter, &subiter);
         if (subtype == DBUS_TYPE_BYTE) {
             dbus_message_iter_get_fixed_array(&subiter, &ptr, &size);
-            Parg = PyString_FromStringAndSize(ptr, size);
+            Parg = PyBytes_FromStringAndSize(ptr, size);
             CHECK_PYTHON_ERROR(Parg == NULL);
         } else {
             if (subtype == DBUS_TYPE_DICT_ENTRY)
@@ -690,7 +712,7 @@ _tdbus_message_read_arg(DBusMessageIter *iter, int depth)
         dbus_message_iter_recurse(iter, &subiter);
         if ((sig = dbus_message_iter_get_signature(&subiter)) == NULL)
             RETURN_MEMORY_ERROR();
-        Pkey = PyString_FromString(sig);
+        Pkey = PyUnicode_FromString(sig);
         CHECK_PYTHON_ERROR(Pkey == NULL);
         if ((Pvalue = _tdbus_message_read_arg(&subiter, depth+1)) == NULL)
             RETURN_ERROR(NULL);
@@ -833,8 +855,8 @@ _tdbus_check_number(PyObject *number, int type)
         return 0;
     }
 
-    if (PyObject_Compare(number, Pmin) == -1 ||
-                PyObject_Compare(number, Pmax) == 1)
+    if (PyObject_RichCompareBool(number, Pmin, Py_LT) ||
+                PyObject_RichCompareBool(number, Pmax, Py_GT))
         RETURN_ERROR("value out of range for `%c' format", type);
     return 1;
 
@@ -1004,19 +1026,38 @@ _tdbus_message_append_arg(DBusMessageIter *iter, char *format,
             RETURN_MEMORY_ERROR();
         break;
     case DBUS_TYPE_OBJECT_PATH:
-        if (!PyString_Check(arg))
+#if PY_MAJOR_VERSION < 3
+        if (PyString_Check(arg)) {
+            if ((value.str = PyString_AsString(arg)) == NULL)
+                RETURN_ERROR(NULL);
+        } else
+#endif
+        if (PyUnicode_Check(arg)) {
+            Putf8 = PyUnicode_AsUTF8String(arg);
+            CHECK_PYTHON_ERROR(Putf8 == NULL);
+            value.str = PyBytes_AsString(Putf8);
+            Py_CLEAR(Putf8);
+            CHECK_PYTHON_ERROR(value.str == NULL);
+        } else
             RETURN_ERROR("expecting str for `%c' format", *format);
-        if ((value.str = PyString_AsString(arg)) == NULL)
-            RETURN_ERROR(NULL);
         if (!_tdbus_check_path(value.str))
             RETURN_ERROR("invalid object path argument");
         if (!dbus_message_iter_append_basic(iter, *format, &value))
             RETURN_MEMORY_ERROR();
         break;
     case DBUS_TYPE_SIGNATURE:
-        if (!PyString_Check(arg))
+#if PY_MAJOR_VERSION < 3
+        if (PyString_Check(arg)) {
+            subtype = strdup(PyString_AsString(arg));
+        } else
+#endif
+        if (PyUnicode_Check(arg)) {
+            Putf8 = PyUnicode_AsUTF8String(arg);
+            CHECK_PYTHON_ERROR(Putf8 == NULL);
+            subtype = strdup(PyBytes_AsString(Putf8));
+            Py_CLEAR(Putf8);
+        } else
             RETURN_ERROR("expecting str for `%c' format", *format);
-        subtype = strdup(PyString_AsString(arg));
         CHECK_MEMORY_ERROR(subtype == NULL);
         if (!_tdbus_check_signature(subtype, 0, 0))
             RETURN_ERROR("invalid signature");
@@ -1029,11 +1070,12 @@ _tdbus_message_append_arg(DBusMessageIter *iter, char *format,
         if (PyUnicode_Check(arg)) {
             Putf8 = PyUnicode_AsUTF8String(arg);
             CHECK_PYTHON_ERROR(Putf8 == NULL);
-        } else if (PyString_Check(arg)) {
-            Putf8 = arg;
+            value.str = PyBytes_AsString(Putf8);
+            Py_CLEAR(Putf8);
+        } else if (PyBytes_Check(arg)) {
+            value.str = PyBytes_AsString(arg);
         } else
             RETURN_ERROR("expecting str or unicode for '%c' format", *format);
-        value.str = PyString_AsString(Putf8);
         if (!dbus_message_iter_append_basic(iter, *format, &value))
             RETURN_MEMORY_ERROR();
         break;
@@ -1053,10 +1095,10 @@ _tdbus_message_append_arg(DBusMessageIter *iter, char *format,
                     format+1, &subiter))
             RETURN_MEMORY_ERROR();
         if (format[1] == DBUS_TYPE_BYTE) {
-            if (!PyString_Check(arg))
-                RETURN_ERROR("expecting str argument for array of byte");
-            ptr = PyString_AS_STRING(arg);
-            size = PyString_GET_SIZE(arg);
+            if (!PyBytes_Check(arg))
+                RETURN_ERROR("expecting bytes argument for array of byte");
+            ptr = PyBytes_AS_STRING(arg);
+            size = PyBytes_GET_SIZE(arg);
             if (!dbus_message_iter_append_fixed_array(&subiter, format[1], &ptr, size))
                 RETURN_MEMORY_ERROR();
         } else {
@@ -1097,9 +1139,17 @@ _tdbus_message_append_arg(DBusMessageIter *iter, char *format,
             RETURN_ERROR("expecting a sequence argument of length 2 for variant");
         Ptype = PySequence_GetItem(arg, 0);
         Pvalue = PySequence_GetItem(arg, 1);
-        if (!PyString_Check(Ptype))
+
+        if (PyUnicode_Check(Ptype)) {
+            Putf8 = PyUnicode_AsUTF8String(Ptype);
+            CHECK_PYTHON_ERROR(Putf8 == NULL);
+            subtype = strdup(PyBytes_AsString(Putf8));
+            Py_CLEAR(Putf8);
+        } else if (PyBytes_Check(Ptype)) {
+            subtype = strdup(PyBytes_AsString(Ptype));
+        } else
             RETURN_ERROR("first item in sequence argument must be string");
-        subtype = strdup(PyString_AsString(Ptype));
+
         CHECK_MEMORY_ERROR(subtype == NULL);
         if (!_tdbus_check_signature(subtype, 0, 0))
             RETURN_ERROR("invalid signature for variant");
@@ -1231,7 +1281,7 @@ typedef struct
 
 static PyTypeObject PyTDBusPendingCallType =
 {
-    PyObject_HEAD_INIT(NULL) 0,
+    PyVarObject_HEAD_INIT(NULL, 0)
     "_tdbus.PendingCall",
     sizeof(PyTDBusPendingCallObject)
 };
@@ -1303,7 +1353,7 @@ typedef struct
 
 PyTypeObject PyTDBusConnectionType =
 {
-    PyObject_HEAD_INIT(NULL) 0,
+    PyVarObject_HEAD_INIT(NULL, 0)
     "_tdbus.Connection",
     sizeof(PyTDBusConnectionObject)
 };
@@ -1373,7 +1423,7 @@ tdbus_connection_init(PyTDBusConnectionObject *self, PyObject *args,
         self->connection = _tdbus_connection_open(address);
         if (self->connection == NULL)
             return -1;
-        if (!dbus_connection_set_data(self->connection, tdbus_app_slot, self, NULL))
+        if (!dbus_connection_set_data(self->connection, GETSTATE()->app_slot, self, NULL))
             return -1;
     }
     return 0;
@@ -1405,7 +1455,7 @@ tdbus_connection_open(PyTDBusConnectionObject *self, PyObject *args)
     self->connection = _tdbus_connection_open(address);
     if (self->connection == NULL)
         RETURN_ERROR(NULL);
-    if (!dbus_connection_set_data(self->connection, tdbus_app_slot, self, NULL))
+    if (!dbus_connection_set_data(self->connection, GETSTATE()->app_slot, self, NULL))
         RETURN_ERROR("dbus_connection_set_data() failed");
 
     Py_INCREF(Py_None);
@@ -1741,7 +1791,7 @@ tdbus_connection_get_unique_name(PyTDBusConnectionObject *self, PyObject *args)
 
     if ((name = dbus_bus_get_unique_name(self->connection)) == NULL)
         RETURN_ERROR("dbus_bus_get_unique_name() failed");
-    if ((Paddress = PyString_FromString(name)) == NULL)
+    if ((Paddress = PyUnicode_FromString(name)) == NULL)
         RETURN_ERROR(NULL);
     return Paddress;
 
@@ -1794,17 +1844,59 @@ static PyMethodDef tdbus_methods[] = {
     { NULL }
 };
 
+#if PY_MAJOR_VERSION >= 3
+
+static int tdbus_traverse(PyObject *m, visitproc visit, void *arg) {
+    Py_VISIT(GETMSTATE(m)->error);
+    return 0;
+}
+
+static int tdbus_clear(PyObject *m) {
+    Py_CLEAR(GETMSTATE(m)->error);
+    return 0;
+}
+
+
+static struct PyModuleDef moduledef = {
+        PyModuleDef_HEAD_INIT,
+        "_tdbus",
+        NULL,
+        sizeof(struct module_state),
+        tdbus_methods,
+        NULL,
+        tdbus_traverse,
+        tdbus_clear,
+        NULL
+};
+
+#define INITERROR { Py_XDECREF(Pmodule); return NULL; }
+
+PyObject * PyInit__tdbus(void) {
+
+#else
+#define INITERROR { Py_XDECREF(Pmodule); return; }
+
 void init_tdbus(void) {
+#endif
     PyObject *Pmodule, *Pdict, *Pint, *Pstr;
 
+#if PY_MAJOR_VERSION >= 3
+    if ((Pmodule = PyModule_Create(&moduledef)) == NULL)
+#else
     if ((Pmodule = Py_InitModule("_tdbus", tdbus_methods)) == NULL)
-        return;
+#endif
+        INITERROR;
+
+    struct module_state *state = GETMSTATE(Pmodule);
+    state->error = NULL;
+    state->app_slot = -1;
+
     if ((Pdict = PyModule_GetDict(Pmodule)) == NULL)
-        return;
-    if ((tdbus_Error = PyErr_NewException("_tdbus.Error", NULL, NULL)) == NULL)
-        return;
-    if (PyDict_SetItemString(Pdict, "Error", tdbus_Error) == -1)
-        return;
+        INITERROR;
+    if ((state->error = PyErr_NewException("_tdbus.Error", NULL, NULL)) == NULL)
+        INITERROR;
+    if (PyDict_SetItemString(Pdict, "Error", state->error) == -1)
+        INITERROR;
 
     #define FINALIZE_TYPE(type, name, methods, init, dealloc) \
         do { \
@@ -1814,8 +1906,8 @@ void init_tdbus(void) {
             type.tp_flags = Py_TPFLAGS_DEFAULT; \
             type.tp_doc = "D-BUS " name " Object"; \
             type.tp_methods = methods; \
-            if (PyType_Ready(&type) < 0) return; \
-            if (PyDict_SetItemString(Pdict, name, (PyObject *) &type) < 0) return; \
+            if (PyType_Ready(&type) < 0) INITERROR; \
+            if (PyDict_SetItemString(Pdict, name, (PyObject *) &type) < 0) INITERROR; \
         } while (0)
 
     FINALIZE_TYPE(PyTDBusWatchType, "Watch", tdbus_watch_methods,
@@ -1831,7 +1923,7 @@ void init_tdbus(void) {
 
     #define EXPORT_STRING(name, value) \
         do { \
-            if ((Pstr = PyString_FromString(value)) == NULL) return; \
+            if ((Pstr = PyUnicode_FromString(value)) == NULL) INITERROR; \
             PyDict_SetItemString(Pdict, #name, Pstr); \
             Py_DECREF(Pstr); \
         } while (0)
@@ -1842,14 +1934,14 @@ void init_tdbus(void) {
 
 	#define EXPORT_INT_SYMBOL(name) \
 		do { \
-			if ((Pint = PyInt_FromLong(name)) == NULL) return; \
+			if ((Pint = PyInt_FromLong(name)) == NULL) INITERROR; \
 			PyDict_SetItemString(Pdict, #name, Pint); \
 			Py_DECREF(Pint); \
 		} while (0)
 
     #define EXPORT_STRING_SYMBOL(name) \
         do { \
-            if ((Pstr = PyString_FromString(name)) == NULL) return; \
+            if ((Pstr = PyUnicode_FromString(name)) == NULL) INITERROR; \
             PyDict_SetItemString(Pdict, #name, Pstr); \
             Py_DECREF(Pstr); \
         } while (0)
@@ -1898,7 +1990,7 @@ void init_tdbus(void) {
 
     #define EXPORT_STR_SYMBOL(name) \
         do { \
-            if ((Pstr = PyString_FromString(name)) == NULL) return; \
+            if ((Pstr = PyUnicode_FromString(name)) == NULL) INITERROR; \
             PyDict_SetItemString(Pdict, #name, Pstr); \
             Py_DECREF(Pstr); \
         } while (0)
@@ -1908,7 +2000,7 @@ void init_tdbus(void) {
     EXPORT_STR_SYMBOL(DBUS_INTERFACE_DBUS);
 
     if (!_tdbus_init_check_number_cache())
-        return;
+        INITERROR;
 
     /* NOTE: dbus_threads_init_default() should better use the same thread
      * implementation that Python uses! At least on Linux, Windows and OSX
@@ -1919,8 +2011,15 @@ void init_tdbus(void) {
      * quite inefficient. */
 
     if (!dbus_threads_init_default())
-        return;
+        INITERROR;
 
-    if (!dbus_connection_allocate_data_slot(&tdbus_app_slot))
-        return;
+    if (!dbus_connection_allocate_data_slot(&state->app_slot))
+        INITERROR;
+
+#if PY_MAJOR_VERSION >= 3
+        return Pmodule;
+#endif
 }
+
+/*
+ * vi: et sts=4 sw=4 et */

@@ -33,7 +33,7 @@ Building and Installing
 Requirements
 ============
 
-Python-tdbus should work with Python 2.6 and later (Python 3.x included).
+Python-tdbus should work with Python 2.7 (maybe 2.6), 3.4 (3.3) and later.
 
 Comments and Suggestion
 =======================

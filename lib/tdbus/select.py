@@ -126,7 +126,7 @@ class SimpleDBusConnection(DBusConnection):
             while loop.timeouts and loop.timeouts[0][0] < now:
                 expires, timeout = heapq.heappop(loop.timeouts)
                 timeout.handle()
-                heapq.heappush(loop.timeouts, (expires + timeout.get_interval() / 1000))
+                heapq.heappush(loop.timeouts, (expires + timeout.get_interval() / 1000,))
             while self._connection.get_dispatch_status() == \
                         _tdbus.DBUS_DISPATCH_DATA_REMAINS:
                 self._connection.dispatch()
