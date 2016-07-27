@@ -261,7 +261,7 @@ class MessageTest(BaseTest):
         error = self.echo_exception('s', ['Missing second argument, which raises an ValueError'])
         self.assertEquals(error.__class__.__name__, 'ValueError')
         self.assertEquals(error.type, 'ValueError')
-        self.assertEquals(error.args[0], 'need more than 1 value to unpack')
+        self.assertTrue(error.args[0] in  ('need more than 1 value to unpack', 'not enough values to unpack (expected 2, got 1)'))
         assert isinstance(error, DBusError)
 
 
