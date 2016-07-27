@@ -1,1 +1,1 @@
-git+git://github.com/surfly/gevent.git#egg=gevent
+gevent==1.1.2
