@@ -14,8 +14,8 @@ version_info = {
     'name': 'python-tdbus',
     'version': '0.9',
     'description': 'A Python interface to D-BUS',
-    'author': 'Geert Jansen, Hmvp',
-    'author_email': 'geertj@gmail.com, hiram.van.paassen@mastervolt.com',
+    'author': 'Hmvp, Geert Jansen',
+    'author_email': 'hiram.van.paassen@mastervolt.com',
     'url': 'https://github.com/geertj/python-tdbus',
     'license': 'MIT',
     'classifiers': [
@@ -24,6 +24,9 @@ version_info = {
         'Operating System :: POSIX',
         'Programming Language :: Python :: 2.6',
         'Programming Language :: Python :: 2.7'
+        'Programming Language :: Python :: 3.3'
+        'Programming Language :: Python :: 3.4'
+        'Programming Language :: Python :: 3.5'
     ],
 }
 
