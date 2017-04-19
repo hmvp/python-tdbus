@@ -43,22 +43,24 @@ class GEventHandler(DBusHandler):
 
         @see: http://dbus.freedesktop.org/doc/dbus-specification.html#introspection-format
         """
-
-        xml = """<?xml version="1.0" encoding="UTF-8"?>
-<!-- /usr/share/dbus-1/interfaces/com.mastervolt.Iris.ShowDevice.xml -->
-<node name="/com/mastervolt/Iris">
-        <interface name="com.mastervolt.Iris">
-                <method name="HelloMethod">
-                        <arg type="s" name="somestring" direction="in" />
-                        <arg type="i" name="someint" direction="in" />
-                        <annotation name="org.freedesktop.DBus.Method.NoReply" value="true"/>
-                </method>
-                 <signal name="Hello">
-                        <arg type="as" name="arrayofstrings" direction="in" />
-                </signal>
-                <!-- Add more methods/signals if you want -->
-        </interface>
+        if message.get_path() == '/':
+            xml = """<?xml version="1.0" encoding="UTF-8"?>
+<node name="/">
+        <node name="com/example/TDBus" />
 </node>"""
+
+        else:
+            xml = """<?xml version="1.0" encoding="UTF-8"?>
+    <node name="com/example/TDBus">
+            <interface name="com.example.Hello">
+                    <method name="HelloMethod">
+                            <arg type="s" name="somestring" direction="in" />
+                            <arg type="i" name="someint" direction="in" />
+                            <annotation name="org.freedesktop.DBus.Method.NoReply" value="true"/>
+                    </method>
+                    <!-- Add more methods/signals if you want -->
+            </interface>
+    </node>"""
 
         self.set_response("s", [xml])
 

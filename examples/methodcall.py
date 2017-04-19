@@ -23,11 +23,11 @@ class MethodHandler(DBusHandler):
     def hello(self, message):
         hello = 'Hello world!'
         print('receive a Hello request, responding with "{}"'.format(hello))
-        self.set_response('s', (hello,))
+        self.set_response('s', [hello])
 
     @method(interface="com.example.Hello", path="/com/example/TDBus", member="HelloException")
     def hello2(self, message):
-        print 'receive a Hello request, responding with Exception'
+        print('receive a Hello request, responding with Exception')
         raise TypeError("Hello World!")
 
     @method(interface=tdbus.DBUS_INTERFACE_PROPERTIES)
@@ -36,7 +36,7 @@ class MethodHandler(DBusHandler):
 
         We don't have properties so we return empty array
         """
-        print 'receive an GetAll properties request'
+        print('receive an GetAll properties request')
         self.set_response("a{sv}", [{}])
 
     @method(interface=tdbus.DBUS_INTERFACE_INTROSPECTABLE)
@@ -59,7 +59,7 @@ class MethodHandler(DBusHandler):
 
         else:
             xml = """<?xml version="1.0" encoding="UTF-8"?>
-<node name="/com/example/TDBus">
+<node name="com/example/TDBus">
         <interface name="com.example.Hello">
                 <method name="Hello">
                         <arg type="s" name="message" direction="in" />
