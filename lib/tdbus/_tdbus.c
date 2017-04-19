@@ -1056,28 +1056,42 @@ _tdbus_message_append_arg(DBusMessageIter *iter, char *format,
             CHECK_PYTHON_ERROR(Putf8 == NULL);
             subtype = strdup(PyBytes_AsString(Putf8));
             Py_CLEAR(Putf8);
-        } else
+        } else {
             RETURN_ERROR("expecting str for `%c' format", *format);
+        }
         CHECK_MEMORY_ERROR(subtype == NULL);
-        if (!_tdbus_check_signature(subtype, 0, 0))
+
+        if (!_tdbus_check_signature(subtype, 0, 0)) {
             RETURN_ERROR("invalid signature");
+        }
+
         value.str = subtype;
+
         if (!dbus_message_iter_append_basic(iter, *format, &value))
             RETURN_MEMORY_ERROR();
+
         free(subtype); subtype = NULL;
         break;
     case DBUS_TYPE_STRING:
         if (PyUnicode_Check(arg)) {
             Putf8 = PyUnicode_AsUTF8String(arg);
             CHECK_PYTHON_ERROR(Putf8 == NULL);
+            // PyBytes_AsString does not create a new string but uses a pointer into its argument
+            // Make sure to make a copy before clearing its argument
             value.str = PyBytes_AsString(Putf8);
+            if (!dbus_message_iter_append_basic(iter, *format, &value))
+                RETURN_MEMORY_ERROR();
+
             Py_CLEAR(Putf8);
         } else if (PyBytes_Check(arg)) {
             value.str = PyBytes_AsString(arg);
-        } else
+
+            if (!dbus_message_iter_append_basic(iter, *format, &value))
+                RETURN_MEMORY_ERROR();
+        } else {
             RETURN_ERROR("expecting str or unicode for '%c' format", *format);
-        if (!dbus_message_iter_append_basic(iter, *format, &value))
-            RETURN_MEMORY_ERROR();
+        }
+
         break;
     case DBUS_STRUCT_BEGIN_CHAR:
         if (!dbus_message_iter_open_container(iter, DBUS_TYPE_STRUCT,
@@ -1379,11 +1393,11 @@ _tdbus_connection_open(const char *address)
         if (connection == NULL)
             RETURN_DBUS_ERROR(error);
     } else if (!strcmp(address, "<STARTER>")) {
-		Py_BEGIN_ALLOW_THREADS
-		connection = dbus_bus_get_private(DBUS_BUS_STARTER, &error);
-		Py_END_ALLOW_THREADS
-		if (connection == NULL)
-			RETURN_DBUS_ERROR(error);
+        Py_BEGIN_ALLOW_THREADS
+        connection = dbus_bus_get_private(DBUS_BUS_STARTER, &error);
+        Py_END_ALLOW_THREADS
+        if (connection == NULL)
+            RETURN_DBUS_ERROR(error);
     } else {
         Py_BEGIN_ALLOW_THREADS
         connection = dbus_connection_open_private(address, &error);
@@ -1932,12 +1946,12 @@ void init_tdbus(void) {
     EXPORT_STRING(DBUS_BUS_SESSION, "<SESSION>");
     EXPORT_STRING(DBUS_BUS_STARTER, "<STARTER>");
 
-	#define EXPORT_INT_SYMBOL(name) \
-		do { \
-			if ((Pint = PyInt_FromLong(name)) == NULL) INITERROR; \
-			PyDict_SetItemString(Pdict, #name, Pint); \
-			Py_DECREF(Pint); \
-		} while (0)
+    #define EXPORT_INT_SYMBOL(name) \
+        do { \
+            if ((Pint = PyInt_FromLong(name)) == NULL) INITERROR; \
+            PyDict_SetItemString(Pdict, #name, Pint); \
+            Py_DECREF(Pint); \
+        } while (0)
 
     #define EXPORT_STRING_SYMBOL(name) \
         do { \
