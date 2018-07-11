@@ -1,0 +1,3 @@
+[0.11]:
+- Fixed use after free in message string arguments
+
