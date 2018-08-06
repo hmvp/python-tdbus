@@ -1519,6 +1519,7 @@ static dbus_bool_t
 _tdbus_add_watch_callback(DBusWatch *watch, void *data)
 {
     PyTDBusWatchObject *Pwatch;
+    PyObject *ret;
 
     if ((Pwatch = dbus_watch_get_data(watch)) == NULL) {
         if ((Pwatch = PyObject_New(PyTDBusWatchObject, &PyTDBusWatchType)) == NULL)
@@ -1528,7 +1529,8 @@ _tdbus_add_watch_callback(DBusWatch *watch, void *data)
         Py_INCREF(Pwatch);
         dbus_watch_set_data(watch, Pwatch, _tdbus_decref);
     }
-    PyObject_CallMethod((PyObject *) data, "add_watch", "O", Pwatch);
+    ret = PyObject_CallMethod((PyObject *) data, "add_watch", "O", Pwatch);
+    Py_XDECREF(ret);
     if (PyErr_Occurred())
         PyErr_Clear();
     return TRUE;
@@ -1538,10 +1540,12 @@ static void
 _tdbus_remove_watch_callback(DBusWatch *watch, void *data)
 {
     PyObject *Pwatch;
+    PyObject *ret;
 
     Pwatch = dbus_watch_get_data(watch);
     ASSERT(Pwatch != NULL);
-    PyObject_CallMethod((PyObject *) data, "remove_watch", "O", Pwatch);
+    ret = PyObject_CallMethod((PyObject *) data, "remove_watch", "O", Pwatch);
+    Py_XDECREF(ret);
     if (PyErr_Occurred())
         PyErr_Clear();
 error:
@@ -1552,10 +1556,12 @@ static void
 _tdbus_watch_toggled_callback(DBusWatch *watch, void *data)
 {
     PyObject *Pwatch;
+    PyObject *ret;
 
     Pwatch = dbus_watch_get_data(watch);
     ASSERT(Pwatch != NULL);
-    PyObject_CallMethod((PyObject *) data, "watch_toggled", "O", Pwatch);
+    ret = PyObject_CallMethod((PyObject *) data, "watch_toggled", "O", Pwatch);
+    Py_XDECREF(ret);
     if (PyErr_Occurred())
         PyErr_Clear();
 error:
@@ -1566,6 +1572,7 @@ static dbus_bool_t
 _tdbus_add_timeout_callback(DBusTimeout *timeout, void *data)
 {
     PyTDBusTimeoutObject *Ptimeout;
+    PyObject *ret;
 
     if ((Ptimeout = dbus_timeout_get_data(timeout)) == NULL) {
         if ((Ptimeout = PyObject_New(PyTDBusTimeoutObject, &PyTDBusTimeoutType)) == NULL)
@@ -1575,7 +1582,8 @@ _tdbus_add_timeout_callback(DBusTimeout *timeout, void *data)
         Py_INCREF(Ptimeout);
         dbus_timeout_set_data(timeout, Ptimeout, _tdbus_decref);
     }
-    PyObject_CallMethod((PyObject *) data, "add_timeout", "O", Ptimeout);
+    ret = PyObject_CallMethod((PyObject *) data, "add_timeout", "O", Ptimeout);
+    Py_XDECREF(ret);
     if (PyErr_Occurred())
         PyErr_Clear();
     return TRUE;
@@ -1585,10 +1593,12 @@ static void
 _tdbus_remove_timeout_callback(DBusTimeout *timeout, void *data)
 {
     PyObject *Ptimeout;
+    PyObject *ret;
 
     Ptimeout = dbus_timeout_get_data(timeout);
     ASSERT(Ptimeout != NULL);
-    PyObject_CallMethod((PyObject *) data, "remove_timeout", "O", Ptimeout);
+    ret = PyObject_CallMethod((PyObject *) data, "remove_timeout", "O", Ptimeout);
+    Py_XDECREF(ret);
     if (PyErr_Occurred())
         PyErr_Clear();
 error:
@@ -1599,10 +1609,12 @@ static void
 _tdbus_timeout_toggled_callback(DBusTimeout *timeout, void *data)
 {
     PyObject *Ptimeout;
+    PyObject *ret;
 
     Ptimeout = dbus_timeout_get_data(timeout);
     ASSERT(Ptimeout != NULL);
-    PyObject_CallMethod((PyObject *) data, "timeout_toggled", "O", Ptimeout);
+    ret = PyObject_CallMethod((PyObject *) data, "timeout_toggled", "O", Ptimeout);
+    Py_XDECREF(ret);
     if (PyErr_Occurred())
         PyErr_Clear();
 error:
