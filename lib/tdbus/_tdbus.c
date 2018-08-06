@@ -1526,7 +1526,6 @@ _tdbus_add_watch_callback(DBusWatch *watch, void *data)
             return FALSE;
         Pwatch->watch = watch;
         Pwatch->data = NULL;
-        Py_INCREF(Pwatch);
         dbus_watch_set_data(watch, Pwatch, _tdbus_decref);
     }
     ret = PyObject_CallMethod((PyObject *) data, "add_watch", "O", Pwatch);
@@ -1579,7 +1578,6 @@ _tdbus_add_timeout_callback(DBusTimeout *timeout, void *data)
             return FALSE;
         Ptimeout->timeout = timeout;
         Ptimeout->data = NULL;
-        Py_INCREF(Ptimeout);
         dbus_timeout_set_data(timeout, Ptimeout, _tdbus_decref);
     }
     ret = PyObject_CallMethod((PyObject *) data, "add_timeout", "O", Ptimeout);
